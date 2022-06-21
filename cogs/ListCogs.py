@@ -34,7 +34,7 @@ class ListCogs(commands.Cog):
                         embed = discord.Embed(title="Picture " + str(i), description="Invalid url")
                     if validators.url(url_info["url"]):
                         embed.set_image(url=url_info["url"])
-                    embed.set_footer(text="To delete the picture: /remove_picture_in_list list_name: {} picture_id: {}".format(list_name, url_info["id"]))
+                    embed.set_footer(text="To delete the picture: /list remove_picture list_name: {} picture_id: {}".format(list_name, url_info["id"]))
                     pageList.append(pages.Page(
                         embeds=[
                             embed
@@ -174,10 +174,38 @@ class ListCogs(commands.Cog):
     @list.command(guild_ids=guildIds,  description="Remove all a url picture list")
     async def remove_picture(self, ctx: discord.ApplicationContext, 
                                     list_name: discord.Option(str, "The name of the list to delete"), 
-                                    picture_id: discord.Option(int, "The picture number to delete")):
+                                    picture_id: discord.Option(str, "The picture number to delete")):
         await ctx.defer()
         if not ctx.guild.id in self.servers or len(self.servers[ctx.guild.id]["pictures_list"]) == 0:
             await ctx.respond("You dont have any list !")
         else:
-            pass
-            # todo
+            if list_name in self.servers[ctx.guild.id]["pictures_list"]:
+                pic_info_found = None
+                for pic_info in self.servers[ctx.guild.id]["pictures_list"][list_name]:
+                    if pic_info["id"] == picture_id:
+                        pic_info_found = pic_info
+                        break
+                if not pic_info_found is None:
+                    self.servers[ctx.guild.id]["pictures_list"][list_name].remove(pic_info_found)
+                    save_data(self.servers)
+                    await ctx.respond("The picture {} was remove from the list {}".format(picture_id, list_name))
+                else:
+                   await ctx.respond("That picture id does not exist in the list {} !".format(list_name)) 
+            else:
+                await ctx.respond("The list {} does not exist !".format(list_name))
+                
+    @list.command(guild_ids=guildIds,  description="Remove all a url picture list")
+    async def merge(self, ctx: discord.ApplicationContext,
+                        destination_list: discord.Option(str, "The name of the list where the merge will be done"),
+                        list_to_merge1: discord.Option(str, "The name of the list to merge with the other one"), 
+                        list_to_merge2: discord.Option(str, "The name of the list to merge with the other one")):
+        await ctx.defer()
+        if not ctx.guild.id in self.servers or len(self.servers[ctx.guild.id]["pictures_list"]) == 0:
+            await ctx.respond("You dont have any list !")
+        else:
+            if not list_to_merge1 in self.servers[ctx.guild.id]["pictures_list"]:
+                ctx.respond("The list {} does not exist".format(list_to_merge1))
+                return
+            if not list_to_merge2 in self.servers[ctx.guild.id]["pictures_list"]:
+                ctx.respond("The list {} does not exist".format(list_to_merge2))
+                return
