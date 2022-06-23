@@ -1,7 +1,8 @@
+import os
 import uuid
 from Confirm import Confirm
-from Util import save_data
-from constant import guildIds
+from Util import is_member_allowed, save_data
+from constant import guildIds, temp_dir
 import discord
 from discord.ext import commands, pages
 import validators
@@ -72,6 +73,8 @@ class ListCogs(commands.Cog):
     async def create(self, ctx: discord.ApplicationContext, list_name: str, attachment: discord.Attachment,
                                 url_separator: str, encoding: str):
         await ctx.defer()
+        if not await is_member_allowed(ctx, self.servers):
+            return
         if attachment is not None:
             file_read = await attachment.read()
             file_content = None
@@ -84,19 +87,21 @@ class ListCogs(commands.Cog):
             urls_pic = []
             for url in urls:
                 url = url.strip()
-                urls_pic.append({
-                    "id": str(uuid.uuid4()),
-                    "url": url 
-                })
+                if validators.url(url):
+                    urls_pic.append({
+                        "id": str(uuid.uuid4()),
+                        "url": url 
+                    })
         else:
             urls_pic = []
         if not ctx.guild.id in self.servers:
             self.servers[ctx.guild.id] = {
                 "pictures": [],
-                "channels": None,
+                "channels": set(),
                 "pictures_list": {
                     list_name: urls_pic
-                }
+                },
+                "roles": set()
             }
             save_data(self.servers)
             await ctx.respond("The list was created with {} items !".format(len(urls_pic)))
@@ -128,6 +133,8 @@ class ListCogs(commands.Cog):
                                     list_name: discord.Option(str, "The name of the list to delete"),
                                     url: discord.Option(str, "The url of the picture")):
         await ctx.defer()
+        if not await is_member_allowed(ctx, self.servers):
+            return
         if not ctx.guild.id in self.servers or len(self.servers[ctx.guild.id]["pictures_list"]) == 0:
             await ctx.respond("You dont have any list !")
         else:
@@ -160,12 +167,20 @@ class ListCogs(commands.Cog):
     async def remove_list(self, ctx: discord.ApplicationContext, 
                                     list_name: discord.Option(str, "The name of the list to delete")):
         await ctx.defer()
+        if not await is_member_allowed(ctx, self.servers):
+            return
         if not ctx.guild.id in self.servers or len(self.servers[ctx.guild.id]["pictures_list"]) == 0:
             await ctx.respond("You dont have any list !")
         else:
             if list_name in self.servers[ctx.guild.id]["pictures_list"]:
                 embed = discord.Embed(title="Remove success !", description="The list was removed !")
                 del self.servers[ctx.guild.id]["pictures_list"][list_name]
+                toDelete = []
+                for pictureSender in self.servers[ctx.guild.id]["pictures"]:
+                    if pictureSender.isListSearch() and pictureSender.list_name == list_name:
+                        toDelete.append(pictureSender)
+                for picToDelete in toDelete:
+                    self.servers[ctx.guild.id]["pictures"].remove(picToDelete)
                 save_data(self.servers)
             else:
                 embed = discord.Embed(title="Remove fail !", description="This list name does not exist in your url picture list")
@@ -176,6 +191,8 @@ class ListCogs(commands.Cog):
                                     list_name: discord.Option(str, "The name of the list to delete"), 
                                     picture_id: discord.Option(str, "The picture number to delete")):
         await ctx.defer()
+        if not await is_member_allowed(ctx, self.servers):
+            return
         if not ctx.guild.id in self.servers or len(self.servers[ctx.guild.id]["pictures_list"]) == 0:
             await ctx.respond("You dont have any list !")
         else:
@@ -193,19 +210,28 @@ class ListCogs(commands.Cog):
                    await ctx.respond("That picture id does not exist in the list {} !".format(list_name)) 
             else:
                 await ctx.respond("The list {} does not exist !".format(list_name))
-                
-    @list.command(guild_ids=guildIds,  description="Remove all a url picture list")
-    async def merge(self, ctx: discord.ApplicationContext,
-                        destination_list: discord.Option(str, "The name of the list where the merge will be done"),
-                        list_to_merge1: discord.Option(str, "The name of the list to merge with the other one"), 
-                        list_to_merge2: discord.Option(str, "The name of the list to merge with the other one")):
+
+            
+    @list.command(guild_ids=guildIds,  description="Download a list")
+    async def download(self, ctx: discord.ApplicationContext,
+                        list_name: discord.Option(str, "The name of the list that will be downloaded")):
         await ctx.defer()
         if not ctx.guild.id in self.servers or len(self.servers[ctx.guild.id]["pictures_list"]) == 0:
             await ctx.respond("You dont have any list !")
         else:
-            if not list_to_merge1 in self.servers[ctx.guild.id]["pictures_list"]:
-                ctx.respond("The list {} does not exist".format(list_to_merge1))
-                return
-            if not list_to_merge2 in self.servers[ctx.guild.id]["pictures_list"]:
-                ctx.respond("The list {} does not exist".format(list_to_merge2))
-                return
+            if not list_name in self.servers[ctx.guild.id]["pictures_list"]:
+                await ctx.respond("The list {} does not exist".format(list_name))
+            else:
+                if not os.path.isdir(temp_dir):
+                    os.mkdir(temp_dir)
+                path = os.path.join(temp_dir, str(uuid.uuid4()) + ".txt")
+                while os.path.isfile(path):
+                    path = os.path.join(temp_dir, str(uuid.uuid4()) + ".txt")
+                with open(path, "w") as file:
+                    lines = []
+                    for pic_info in self.servers[ctx.guild.id]["pictures_list"][list_name]:
+                        lines.append(pic_info["url"] + "\n")
+                    file.writelines(lines)
+                await ctx.respond("Here is the url list !",
+                                  file=discord.File(path))
+                os.remove(path)

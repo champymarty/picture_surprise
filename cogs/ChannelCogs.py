@@ -1,5 +1,5 @@
 import discord
-from Util import save_data
+from Util import is_member_allowed, save_data
 from constant import guildIds
 from discord.ext import commands
 
@@ -14,11 +14,14 @@ class ChannelCogs(commands.Cog):
     @channel.command(guild_ids=guildIds,  description="Add a channel to receive pictures")
     async def add(self, ctx: discord.ApplicationContext, channel: discord.Option(discord.TextChannel, "The channel where the picture will be sent")):
         await ctx.defer()
+        if not await is_member_allowed(ctx, self.servers):
+            return
         if not ctx.guild.id in self.servers:
             self.servers[ctx.guild.id] = {
                 "pictures": [],
                 "channels": {channel.id},
-                "pictures_list": {}
+                "pictures_list": {},
+                "roles": set()
             }
         else:
             self.servers[ctx.guild.id]["channels"].add(channel.id)
@@ -28,7 +31,9 @@ class ChannelCogs(commands.Cog):
     @channel.command(guild_ids=guildIds,  description="Remove a channel to receive pictures")
     async def remove(self, ctx: discord.ApplicationContext, channel: discord.Option(discord.TextChannel, "The channel where the picture will be sent")):
         await ctx.defer()
-        if not ctx.guild.id in self.servers or len(channel.id in self.servers[ctx.guild.id]["channels"]) == 0:
+        if not await is_member_allowed(ctx, self.servers):
+            return
+        if not ctx.guild.id in self.servers or len(self.servers[ctx.guild.id]["channels"]) == 0:
             embed = discord.Embed(title="Remove fail", description="You don't have any picture channels in your server")
         else:
             if channel.id in self.servers[ctx.guild.id]["channels"]:
