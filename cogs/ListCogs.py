@@ -104,7 +104,7 @@ class ListCogs(commands.Cog):
                 "roles": set()
             }
             save_data(self.servers)
-            await ctx.respond("The list was created with {} items !".format(len(urls_pic)))
+            await ctx.respond("The list {} was created with {} items !".format(list_name, len(urls_pic)))
         else:
             if list_name in self.servers[ctx.guild.id]["pictures_list"]:
                 await ctx.respond("That list already exist !")
