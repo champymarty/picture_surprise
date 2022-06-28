@@ -1,4 +1,6 @@
+import datetime
 import os
+import random
 import uuid
 from Confirm import Confirm
 from Util import is_member_allowed, save_data
@@ -14,6 +16,26 @@ class ListCogs(commands.Cog):
         self.servers = servers
 
     list = discord.SlashCommandGroup("list", "Commands related to url picture list")
+    
+    @list.command(guild_ids=guildIds, name="get_picture", description="Get a picture from a list and reset any last time a pic was sent from that list")
+    async def get_list_item(self, ctx: discord.ApplicationContext, 
+                                    list_name: discord.Option(str, "The name of the list to get the pic from")):
+        await ctx.defer()
+        if not await is_member_allowed(ctx, self.servers):
+            return
+        if not ctx.guild.id in self.servers or len(self.servers[ctx.guild.id]["pictures_list"]) == 0:
+            await ctx.respond("You dont have any list !")
+        elif not list_name in self.servers[ctx.guild.id]["pictures_list"]:
+            await ctx.respond("You dont have any list with the name {} !".format(list_name))
+        else:
+            for picture_sender in self.servers[ctx.guild.id]["pictures"]:
+                if picture_sender.list_name == list_name:
+                    picture_sender.lastSent = datetime.now()
+            pic_info = random.choice(self.servers[ctx.guild.id]["pictures_list"][list_name])
+            embed = discord.Embed(title="Here is a picture of {}".format(list_name))
+            embed.set_image(url=pic_info["url"])
+            embed.set_footer(text="To delete the picture: /list remove_picture list_name: {} picture_id: {}".format(list_name, pic_info["id"]))
+            await ctx.respond(embed=embed)
     
     @list.command(guild_ids=guildIds, description="View all picture of a list")
     async def view(self, ctx: discord.ApplicationContext, 
