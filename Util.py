@@ -1,6 +1,6 @@
 import os
 import pickle
-import random
+import secrets
 import aiohttp
 import discord
 
@@ -34,7 +34,7 @@ async def get_random_gif(search_term, lmt):
         async with session.get(url) as response:
             if response.status == 200:
                 results = await response.json()
-                return random.choice(results["results"])["media_formats"]["gif"]["url"]
+                return secrets.choice(results["results"])["media_formats"]["gif"]["url"]
             else:
                 return ""
 

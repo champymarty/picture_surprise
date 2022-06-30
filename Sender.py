@@ -1,7 +1,7 @@
 from datetime import datetime
 import logging
 import os
-import random
+import secrets
 import discord
 from discord.ext import commands, tasks
 
@@ -45,7 +45,7 @@ class Sender(commands.Cog):
                             changed = True
                             if pictureDisplay.isListSearch():
                                 if not info["pictures_list"][pictureDisplay.list_name] is None:
-                                    pic_info = random.choice(info["pictures_list"][pictureDisplay.list_name])
+                                    pic_info = secrets.choice(info["pictures_list"][pictureDisplay.list_name])
                                     await self.send_image(pic_info["url"], 
                                                         info["channels"], guid_id, pictureDisplay.list_name,
                                                         footer_text="To delete the picture: /list remove_picture list_name: {} picture_id: {}".format(pictureDisplay.list_name, pic_info["id"]))
